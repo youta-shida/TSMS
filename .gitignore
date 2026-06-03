@@ -1,0 +1,3 @@
+tsms
+*.o
+data/teachers.csv
