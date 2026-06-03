@@ -1,9 +1,17 @@
-#include <ctype.h>
 #include <errno.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
+
+#define DATA_DIR "data"
 #define DATA_FILE "data/teachers.csv"
 #define MAX_TEXT 64
 #define LINE_SIZE 512
@@ -31,10 +39,30 @@ typedef struct QueryNode {
     struct QueryNode *next;
 } QueryNode;
 
+/*
+ * 功能：初始化程序运行环境。
+ * 说明：设置本地化环境，Windows 控制台默认编码可能不是 UTF-8，切换到 UTF-8 后能更好显示中文菜单。
+ */
+static void init_runtime(void) {
+    setlocale(LC_ALL, "");
+#ifdef _WIN32
+    system("chcp 65001 > nul");
+#endif
+}
+
+/*
+ * 功能：根据工资项目计算教师应发工资。
+ * 参数：teacher 指向一条教师工资记录。
+ * 返回：基本工资 + 岗位津贴 + 奖金 - 扣款。
+ */
 static double total_salary(const Teacher *teacher) {
     return teacher->baseSalary + teacher->allowance + teacher->bonus - teacher->deduction;
 }
 
+/*
+ * 功能：去掉 fgets 读入字符串末尾的换行符。
+ * 参数：text 为需要处理的字符串。
+ */
 static void trim_newline(char *text) {
     size_t len = strlen(text);
     while (len > 0 && (text[len - 1] == '\n' || text[len - 1] == '\r')) {
@@ -42,6 +70,20 @@ static void trim_newline(char *text) {
     }
 }
 
+/*
+ * 功能：判断文本是否含有 CSV 分隔符逗号。
+ * 参数：text 为用户输入的文本。
+ * 返回：含逗号返回 1，否则返回 0。
+ */
+static int contains_comma(const char *text) {
+    return strchr(text, ',') != NULL;
+}
+
+/*
+ * 功能：安全读取一段非空文本。
+ * 参数：prompt 为提示语；buffer 保存输入；size 为缓冲区长度。
+ * 说明：禁止输入逗号，避免破坏 CSV 文件格式。
+ */
 static void read_text(const char *prompt, char *buffer, size_t size) {
     for (;;) {
         printf("%s", prompt);
@@ -50,13 +92,23 @@ static void read_text(const char *prompt, char *buffer, size_t size) {
             continue;
         }
         trim_newline(buffer);
-        if (buffer[0] != '\0') {
-            return;
+        if (buffer[0] == '\0') {
+            puts("输入不能为空，请重新输入。");
+            continue;
         }
-        puts("输入不能为空，请重新输入。");
+        if (contains_comma(buffer)) {
+            puts("输入内容不能包含英文逗号，请重新输入。");
+            continue;
+        }
+        return;
     }
 }
 
+/*
+ * 功能：读取指定范围内的整数。
+ * 参数：prompt 为提示语；minValue/maxValue 为允许范围。
+ * 返回：用户输入的合法整数。
+ */
 static int read_int(const char *prompt, int minValue, int maxValue) {
     char buffer[MAX_TEXT];
     char *end = NULL;
@@ -73,6 +125,11 @@ static int read_int(const char *prompt, int minValue, int maxValue) {
     }
 }
 
+/*
+ * 功能：读取不小于指定最小值的浮点数。
+ * 参数：prompt 为提示语；minValue 为最小允许值。
+ * 返回：用户输入的合法金额。
+ */
 static double read_double(const char *prompt, double minValue) {
     char buffer[MAX_TEXT];
     char *end = NULL;
@@ -89,6 +146,11 @@ static double read_double(const char *prompt, double minValue) {
     }
 }
 
+/*
+ * 功能：创建教师链表节点。
+ * 参数：teacher 为待保存的教师记录。
+ * 返回：新创建的 TeacherNode 指针；内存不足时直接退出程序。
+ */
 static TeacherNode *create_teacher_node(Teacher teacher) {
     TeacherNode *node = (TeacherNode *)malloc(sizeof(TeacherNode));
     if (node == NULL) {
@@ -100,6 +162,11 @@ static TeacherNode *create_teacher_node(Teacher teacher) {
     return node;
 }
 
+/*
+ * 功能：创建查询结果链表节点。
+ * 参数：teacher 为符合查询条件的教师记录副本。
+ * 返回：新创建的 QueryNode 指针；内存不足时直接退出程序。
+ */
 static QueryNode *create_query_node(Teacher teacher) {
     QueryNode *node = (QueryNode *)malloc(sizeof(QueryNode));
     if (node == NULL) {
@@ -111,6 +178,10 @@ static QueryNode *create_query_node(Teacher teacher) {
     return node;
 }
 
+/*
+ * 功能：把教师记录追加到教师链表尾部。
+ * 参数：head 为链表头指针地址；teacher 为新增记录。
+ */
 static void append_teacher(TeacherNode **head, Teacher teacher) {
     TeacherNode *node = create_teacher_node(teacher);
     if (*head == NULL) {
@@ -125,6 +196,10 @@ static void append_teacher(TeacherNode **head, Teacher teacher) {
     current->next = node;
 }
 
+/*
+ * 功能：把一条记录追加到查询结果链表尾部。
+ * 参数：head 为查询结果链表头指针地址；teacher 为查询命中的记录。
+ */
 static void append_query(QueryNode **head, Teacher teacher) {
     QueryNode *node = create_query_node(teacher);
     if (*head == NULL) {
@@ -139,6 +214,10 @@ static void append_query(QueryNode **head, Teacher teacher) {
     current->next = node;
 }
 
+/*
+ * 功能：释放教师主链表占用的内存。
+ * 参数：head 为教师链表头指针。
+ */
 static void free_teachers(TeacherNode *head) {
     while (head != NULL) {
         TeacherNode *next = head->next;
@@ -147,6 +226,10 @@ static void free_teachers(TeacherNode *head) {
     }
 }
 
+/*
+ * 功能：释放查询结果链表占用的内存。
+ * 参数：head 为查询结果链表头指针。
+ */
 static void free_queries(QueryNode *head) {
     while (head != NULL) {
         QueryNode *next = head->next;
@@ -155,6 +238,11 @@ static void free_queries(QueryNode *head) {
     }
 }
 
+/*
+ * 功能：根据教师编号查找主链表中的记录。
+ * 参数：head 为教师链表头指针；id 为教师编号。
+ * 返回：找到则返回节点指针，否则返回 NULL。
+ */
 static TeacherNode *find_teacher_by_id(TeacherNode *head, const char *id) {
     for (TeacherNode *current = head; current != NULL; current = current->next) {
         if (strcmp(current->data.id, id) == 0) {
@@ -164,6 +252,9 @@ static TeacherNode *find_teacher_by_id(TeacherNode *head, const char *id) {
     return NULL;
 }
 
+/*
+ * 功能：打印工资信息表头。
+ */
 static void print_header(void) {
     puts("-----------------------------------------------------------------------------------------------");
     printf("%-10s %-10s %-6s %-6s %-12s %-12s %10s %10s %10s %10s %10s\n",
@@ -171,12 +262,20 @@ static void print_header(void) {
     puts("-----------------------------------------------------------------------------------------------");
 }
 
+/*
+ * 功能：按表格格式打印一条教师工资记录。
+ * 参数：teacher 为需要输出的教师记录。
+ */
 static void print_teacher(const Teacher *teacher) {
     printf("%-10s %-10s %-6s %-6d %-12s %-12s %10.2f %10.2f %10.2f %10.2f %10.2f\n",
            teacher->id, teacher->name, teacher->gender, teacher->age, teacher->department, teacher->title,
            teacher->baseSalary, teacher->allowance, teacher->bonus, teacher->deduction, total_salary(teacher));
 }
 
+/*
+ * 功能：输出查询结果链表中的所有记录。
+ * 参数：head 为查询结果链表头指针。
+ */
 static void print_query_results(QueryNode *head) {
     int count = 0;
     if (head == NULL) {
@@ -193,22 +292,38 @@ static void print_query_results(QueryNode *head) {
     printf("共查询到 %d 条记录。\n", count);
 }
 
+/*
+ * 功能：创建数据目录。
+ * 返回：成功或目录已存在返回 1，失败返回 0。
+ * 说明：同时兼容 Windows 的 _mkdir 和 Linux/macOS 的 mkdir，便于在不同系统编译运行。
+ */
 static int ensure_data_directory(void) {
-    FILE *probe = fopen("data/.keep", "a");
-    if (probe == NULL) {
-        puts("无法访问 data 目录，请确认程序在项目根目录下运行。");
-        return 0;
+#ifdef _WIN32
+    if (_mkdir(DATA_DIR) == 0 || errno == EEXIST) {
+        return 1;
     }
-    fclose(probe);
-    return 1;
+#else
+    if (mkdir(DATA_DIR, 0755) == 0 || errno == EEXIST) {
+        return 1;
+    }
+#endif
+    perror("创建 data 目录失败");
+    return 0;
 }
 
+/*
+ * 功能：把教师链表中的所有记录写入文件。
+ * 参数：head 为教师链表头指针。
+ * 返回：保存成功返回 1，失败返回 0。
+ */
 static int save_teachers(TeacherNode *head) {
+    FILE *file;
+
     if (!ensure_data_directory()) {
         return 0;
     }
 
-    FILE *file = fopen(DATA_FILE, "w");
+    file = fopen(DATA_FILE, "w");
     if (file == NULL) {
         perror("保存文件失败");
         return 0;
@@ -225,6 +340,11 @@ static int save_teachers(TeacherNode *head) {
     return 1;
 }
 
+/*
+ * 功能：解析文件中的一行 CSV 数据。
+ * 参数：line 为一行文本；teacher 用于保存解析结果。
+ * 返回：解析成功返回 1，字段数量不正确返回 0。
+ */
 static int parse_teacher_line(char *line, Teacher *teacher) {
     char *fields[10];
     int index = 0;
@@ -251,6 +371,10 @@ static int parse_teacher_line(char *line, Teacher *teacher) {
     return 1;
 }
 
+/*
+ * 功能：程序启动时从文件加载教师工资记录。
+ * 参数：head 为教师链表头指针地址。
+ */
 static void load_teachers(TeacherNode **head) {
     FILE *file = fopen(DATA_FILE, "r");
     char line[LINE_SIZE];
@@ -277,6 +401,11 @@ static void load_teachers(TeacherNode **head) {
     printf("已从 %s 读取 %d 条教师工资记录。\n", DATA_FILE, loaded);
 }
 
+/*
+ * 功能：录入一名教师的基本信息和工资信息。
+ * 参数：head 为教师链表头指针地址。
+ * 说明：录入后立即保存到文件，满足数据持久化要求。
+ */
 static void add_teacher(TeacherNode **head) {
     Teacher teacher;
 
@@ -305,6 +434,11 @@ static void add_teacher(TeacherNode **head) {
     }
 }
 
+/*
+ * 功能：按教师编号查询工资信息。
+ * 参数：head 为教师链表头指针。
+ * 说明：查询结果先保存到 QueryNode 链表，再统一输出。
+ */
 static void query_by_id(TeacherNode *head) {
     char id[MAX_TEXT];
     QueryNode *results = NULL;
@@ -321,6 +455,11 @@ static void query_by_id(TeacherNode *head) {
     free_queries(results);
 }
 
+/*
+ * 功能：按所在部门查询工资信息。
+ * 参数：head 为教师链表头指针。
+ * 说明：同一部门可能有多名教师，结果使用查询链表保存并输出。
+ */
 static void query_by_department(TeacherNode *head) {
     char department[MAX_TEXT];
     QueryNode *results = NULL;
@@ -337,20 +476,49 @@ static void query_by_department(TeacherNode *head) {
     free_queries(results);
 }
 
+/*
+ * 功能：按教师姓名查询工资信息。
+ * 参数：head 为教师链表头指针。
+ * 说明：这是扩展查询方式，支持同名教师，结果同样通过链表输出。
+ */
+static void query_by_name(TeacherNode *head) {
+    char name[MAX_TEXT];
+    QueryNode *results = NULL;
+
+    puts("\n【按教师姓名查询】");
+    read_text("请输入教师姓名：", name, sizeof(name));
+    for (TeacherNode *current = head; current != NULL; current = current->next) {
+        if (strcmp(current->data.name, name) == 0) {
+            append_query(&results, current->data);
+        }
+    }
+
+    print_query_results(results);
+    free_queries(results);
+}
+
+/*
+ * 功能：显示查询子菜单并调用具体查询函数。
+ * 参数：head 为教师链表头指针。
+ */
 static void query_menu(TeacherNode *head) {
     int choice;
     do {
         puts("\n【教师工资查询】");
         puts("1. 按教师编号查询");
         puts("2. 按所在部门查询");
+        puts("3. 按教师姓名查询");
         puts("0. 返回主菜单");
-        choice = read_int("请选择：", 0, 2);
+        choice = read_int("请选择：", 0, 3);
         switch (choice) {
             case 1:
                 query_by_id(head);
                 break;
             case 2:
                 query_by_department(head);
+                break;
+            case 3:
+                query_by_name(head);
                 break;
             case 0:
                 break;
@@ -360,6 +528,11 @@ static void query_menu(TeacherNode *head) {
     } while (choice != 0);
 }
 
+/*
+ * 功能：统计全校和各部门工资情况。
+ * 参数：head 为教师链表头指针。
+ * 输出：人数、工资总额、平均工资、最高工资、最低工资和部门汇总。
+ */
 static void statistics(TeacherNode *head) {
     int count = 0;
     double sum = 0.0;
@@ -421,6 +594,11 @@ static void statistics(TeacherNode *head) {
     }
 }
 
+/*
+ * 功能：按教师编号修改教师职称和工资项目。
+ * 参数：head 为教师链表头指针。
+ * 说明：适用于晋升职称、调整岗位津贴或奖金扣款等场景。
+ */
 static void modify_teacher(TeacherNode *head) {
     char id[MAX_TEXT];
     TeacherNode *node;
@@ -449,6 +627,46 @@ static void modify_teacher(TeacherNode *head) {
     }
 }
 
+/*
+ * 功能：按教师编号删除一条记录。
+ * 参数：head 为教师链表头指针地址。
+ * 说明：这是扩展维护功能，删除后立即写回文件。
+ */
+static void delete_teacher(TeacherNode **head) {
+    char id[MAX_TEXT];
+    TeacherNode *current = *head;
+    TeacherNode *previous = NULL;
+
+    puts("\n【删除教师工资信息】");
+    read_text("请输入需要删除的教师编号：", id, sizeof(id));
+
+    while (current != NULL && strcmp(current->data.id, id) != 0) {
+        previous = current;
+        current = current->next;
+    }
+
+    if (current == NULL) {
+        puts("未找到该教师编号。");
+        return;
+    }
+
+    if (previous == NULL) {
+        *head = current->next;
+    } else {
+        previous->next = current->next;
+    }
+    free(current);
+
+    if (save_teachers(*head)) {
+        puts("删除成功，数据已保存到文件。");
+    }
+}
+
+/*
+ * 功能：显示所有教师工资信息。
+ * 参数：head 为教师链表头指针。
+ * 说明：复用查询结果链表输出，保持与查询功能一致的输出形式。
+ */
 static void list_all(TeacherNode *head) {
     QueryNode *results = NULL;
     for (TeacherNode *current = head; current != NULL; current = current->next) {
@@ -458,6 +676,9 @@ static void list_all(TeacherNode *head) {
     free_queries(results);
 }
 
+/*
+ * 功能：打印主菜单。
+ */
 static void print_menu(void) {
     puts("\n========== 教师工资管理系统 ==========");
     puts("1. 录入教师工资信息");
@@ -465,17 +686,23 @@ static void print_menu(void) {
     puts("3. 统计教师工资信息");
     puts("4. 修改教师工资信息");
     puts("5. 显示全部教师工资信息");
+    puts("6. 删除教师工资信息");
     puts("0. 退出系统");
 }
 
+/*
+ * 功能：程序入口函数。
+ * 流程：初始化运行环境、加载文件数据、循环显示菜单、按用户选择调用功能、退出前释放链表内存。
+ */
 int main(void) {
     TeacherNode *teachers = NULL;
     int choice;
 
+    init_runtime();
     load_teachers(&teachers);
     do {
         print_menu();
-        choice = read_int("请选择功能：", 0, 5);
+        choice = read_int("请选择功能：", 0, 6);
         switch (choice) {
             case 1:
                 add_teacher(&teachers);
@@ -491,6 +718,9 @@ int main(void) {
                 break;
             case 5:
                 list_all(teachers);
+                break;
+            case 6:
+                delete_teacher(&teachers);
                 break;
             case 0:
                 puts("感谢使用，再见！");

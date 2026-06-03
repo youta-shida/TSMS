@@ -1,3 +1,7 @@
 tsms
+tsms.exe
 *.o
+*.obj
+*.ilk
+*.pdb
 data/teachers.csv
