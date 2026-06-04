@@ -5,7 +5,7 @@ chcp 65001 > nul
 where gcc > nul 2> nul
 if %errorlevel%==0 (
     echo [TSMS] 使用 MinGW GCC 编译...
-    gcc -std=c11 -Wall -Wextra -O2 -o tsms.exe src\main.c
+    gcc -std=c11 -Wall -Wextra -O2 -finput-charset=UTF-8 -fexec-charset=UTF-8 -o tsms.exe src\main.c
     if %errorlevel% neq 0 exit /b %errorlevel%
     echo [TSMS] 编译成功：tsms.exe
     exit /b 0
@@ -14,7 +14,7 @@ if %errorlevel%==0 (
 where cl > nul 2> nul
 if %errorlevel%==0 (
     echo [TSMS] 使用 Visual Studio cl 编译...
-    cl /W4 /O2 /Fe:tsms.exe src\main.c
+    cl /utf-8 /W4 /O2 /Fe:tsms.exe src\main.c
     if %errorlevel% neq 0 exit /b %errorlevel%
     echo [TSMS] 编译成功：tsms.exe
     exit /b 0

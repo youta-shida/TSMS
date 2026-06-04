@@ -6,6 +6,7 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#include <windows.h>
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -41,12 +42,18 @@ typedef struct QueryNode {
 
 /*
  * 功能：初始化程序运行环境。
- * 说明：设置本地化环境，Windows 控制台默认编码可能不是 UTF-8，切换到 UTF-8 后能更好显示中文菜单。
+ * 说明：程序源文件和提示文本均使用 UTF-8 保存。Windows 控制台默认代码页可能不是 UTF-8，
+ *       需要同时设置 C 运行时本地化环境、控制台输入代码页和输出代码页，避免中文菜单乱码。
  */
 static void init_runtime(void) {
-    setlocale(LC_ALL, "");
 #ifdef _WIN32
-    system("chcp 65001 > nul");
+    if (setlocale(LC_ALL, ".UTF-8") == NULL) {
+        setlocale(LC_ALL, "");
+    }
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#else
+    setlocale(LC_ALL, "");
 #endif
 }
 
@@ -87,6 +94,7 @@ static int contains_comma(const char *text) {
 static void read_text(const char *prompt, char *buffer, size_t size) {
     for (;;) {
         printf("%s", prompt);
+        fflush(stdout);
         if (fgets(buffer, (int)size, stdin) == NULL) {
             clearerr(stdin);
             continue;

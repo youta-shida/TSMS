@@ -60,7 +60,7 @@ tsms.exe
 ### 方法 2：手动使用 MinGW GCC
 
 ```bat
-gcc -std=c11 -Wall -Wextra -O2 -o tsms.exe src\main.c
+gcc -std=c11 -Wall -Wextra -O2 -finput-charset=UTF-8 -fexec-charset=UTF-8 -o tsms.exe src\main.c
 ./tsms.exe
 ```
 
@@ -69,11 +69,11 @@ gcc -std=c11 -Wall -Wextra -O2 -o tsms.exe src\main.c
 请先打开 “Developer Command Prompt for VS”，再执行：
 
 ```bat
-cl /W4 /O2 /Fe:tsms.exe src\main.c
+cl /utf-8 /W4 /O2 /Fe:tsms.exe src\main.c
 .\tsms.exe
 ```
 
-> 如果 Windows 控制台中文显示异常，请确认源文件保存为 UTF-8，并在终端执行 `chcp 65001` 后再运行程序。
+> 程序启动时会自动把 Windows 控制台输入/输出切换到 UTF-8。若手动编译，请保留上面的 UTF-8 编译参数；如果仍显示异常，请确认终端字体支持中文。
 
 ## 四、Linux/macOS 编译与运行
 
