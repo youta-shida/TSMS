@@ -1,97 +1,97 @@
-# 教师工资管理系统（TSMS）
+# ʦʹϵͳTSMS
 
-这是一个基于 C 语言实现的小型教师工资管理系统，面向 Windows 控制台运行，同时也可在 Linux/macOS 上用 GCC 编译测试。系统覆盖课程设计要求中的需求分析、系统设计、编码、文件存储、查询、统计、修改和测试。
+һ C ʵֵСͽʦʹϵͳ Windows ̨УͬʱҲ Linux/macOS  GCC ԡϵͳǿγҪеϵͳơ롢ļ洢ѯͳơ޸ĺͲԡ
 
-## 一、需求分析
+## һ
 
-### 1. 用户角色
+### 1. ûɫ
 
-- **教师管理人员**：录入、维护教师基本信息和工资信息。
-- **财务处人员**：查询教师工资、查看工资统计结果、在职称晋升或工资调整后修改工资项目。
+- **ʦԱ**¼롢άʦϢ͹Ϣ
+- **Ա**ѯʦʡ鿴ͳƽְƽʵ޸ĹĿ
 
-### 2. 功能需求
+### 2. 
 
-1. **教师工资信息录入**：录入教师编号、姓名、性别、年龄、部门、职称、基本工资、岗位津贴、奖金和扣款。
-2. **文件持久化存储**：录入、修改、删除后自动保存到 `data/teachers.csv`，程序启动时自动读取历史数据。
-3. **教师工资查询**：
-   - 按教师编号查询。
-   - 按所在部门查询。
-   - 按教师姓名查询（扩展功能）。
-   - 查询结果先保存到链表，再统一输出，满足课程要求。
-4. **教师工资统计**：统计教师总人数、工资总额、平均工资、最高工资、最低工资，并按部门汇总人数和工资。
-5. **教师工资修改**：按教师编号修改职称、基本工资、津贴、奖金、扣款，适用于晋升职称后的工资调整。
-6. **教师工资删除**：按教师编号删除离职或误录入记录（扩展功能）。
-7. **输入合法性检查**：编号不能为空且不能重复；年龄和金额必须在合理范围；文本字段不能包含英文逗号，避免破坏 CSV 格式。
+1. **ʦϢ¼**¼ʦšԱ䡢šְơʡλͿۿ
+2. **ļ־û洢**¼롢޸ġɾԶ浽 `data/teachers.csv`ʱԶȡʷݡ
+3. **ʦʲѯ**
+   - ʦŲѯ
+   - ڲŲѯ
+   - ʦѯչܣ
+   - ѯȱ浽ͳһγҪ
+4. **ʦͳ**ͳƽʦܶƽʡ߹ʡ͹ʣŻ͹ʡ
+5. **ʦ޸**ʦ޸ְơʡ𡢿ۿڽְƺĹʵ
+6. **ʦɾ**ʦɾְ¼¼չܣ
+7. **ϷԼ**ŲΪҲظͽںΧıֶβܰӢĶţƻ CSV ʽ
 
-### 3. 非功能需求
+### 3. ǹ
 
-- **Windows 可运行**：提供 `build_windows.bat`，可在 Windows 上使用 MinGW GCC 或 Visual Studio `cl` 编译。
-- **可维护性**：每个函数都有详细注释，便于课程答辩和后续扩展。
-- **可移植性**：数据目录创建逻辑兼容 Windows `_mkdir` 与 Linux/macOS `mkdir`。
+- **Windows **ṩ `build_windows.bat` Windows ʹ MinGW GCC  Visual Studio `cl` 롣Ŀıļʹ GBK 룬ƥ䳣 Windows ̨
+- **ά**ÿϸעͣڿγ̴ͺչ
+- **ֲ**Ŀ¼߼ Windows `_mkdir`  Linux/macOS `mkdir`
 
-## 二、系统设计
+## ϵͳ
 
-- 使用 `Teacher` 结构体保存一名教师的基本信息和工资项目。
-- 使用 `TeacherNode` 单链表保存系统中的全部教师记录。
-- 使用 `QueryNode` 单链表保存每次查询的结果，再统一打印输出。
-- 使用 CSV 文本文件作为持久化文件，便于查看和备份。
-- 应发工资计算公式：
+- ʹ `Teacher` ṹ屣һʦĻϢ͹Ŀ
+- ʹ `TeacherNode` ϵͳеȫʦ¼
+- ʹ `QueryNode` ÿβѯĽͳһӡ
+- ʹ CSV ıļΪ־ûļڲ鿴ͱݡ
+- Ӧʼ㹫ʽ
 
 ```text
-应发工资 = 基本工资 + 岗位津贴 + 奖金 - 扣款
+Ӧ =  + λ +  - ۿ
 ```
 
-## 三、Windows 编译与运行
+## Windows 
 
-### 方法 1：使用批处理脚本（推荐）
+###  1ʹűƼ
 
-在 Windows 命令提示符或 PowerShell 中执行：
+ Windows ʾ PowerShell ִУ
 
 ```bat
 build_windows.bat
 ```
 
-脚本会优先尝试 `gcc`，如果未安装 GCC，则尝试 Visual Studio 的 `cl`。编译成功后运行：
+űȳ `gcc`δװ GCC Visual Studio  `cl`ɹУ
 
 ```bat
 tsms.exe
 ```
 
-### 方法 2：手动使用 MinGW GCC
+###  2ֶʹ MinGW GCC
 
 ```bat
-gcc -std=c11 -Wall -Wextra -O2 -o tsms.exe src\main.c
+gcc -std=c11 -Wall -Wextra -O2 -finput-charset=GBK -fexec-charset=GBK -o tsms.exe src\main.c
 ./tsms.exe
 ```
 
-### 方法 3：手动使用 Visual Studio cl
+###  3ֶʹ Visual Studio cl
 
-请先打开 “Developer Command Prompt for VS”，再执行：
+ȴ Developer Command Prompt for VSִУ
 
 ```bat
-cl /W4 /O2 /Fe:tsms.exe src\main.c
+cl /source-charset:gbk /execution-charset:gbk /W4 /O2 /Fe:tsms.exe src\main.c
 .\tsms.exe
 ```
 
-> 如果 Windows 控制台中文显示异常，请确认源文件保存为 UTF-8，并在终端执行 `chcp 65001` 后再运行程序。
+> ʱԶ Windows ̨/л GBKҳ 936ֿеԴļ/ű/ĵ GBK 棻ֶ룬뱣 GBK 
 
-## 四、Linux/macOS 编译与运行
+## ġLinux/macOS 
 
 ```bash
 make
 ./tsms
 ```
 
-也可以直接使用：
+Ҳֱʹã
 
 ```bash
 make run
 ```
 
-## 五、数据格式
+## 塢ݸʽ
 
-数据以 CSV 文本格式保存，每行一名教师：
+ CSV ıʽ棬ÿһʦ
 
 ```text
-编号,姓名,性别,年龄,部门,职称,基本工资,岗位津贴,奖金,扣款
+,,Ա,,,ְ,,λ,,ۿ
 ```

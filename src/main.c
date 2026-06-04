@@ -6,6 +6,7 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#include <windows.h>
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -40,28 +41,34 @@ typedef struct QueryNode {
 } QueryNode;
 
 /*
- * 功能：初始化程序运行环境。
- * 说明：设置本地化环境，Windows 控制台默认编码可能不是 UTF-8，切换到 UTF-8 后能更好显示中文菜单。
+ * ܣʼл
+ * ˵Դļʾıʹ GBK 档Windows Ŀ̨ôҳΪ 936
+ *       ͬ C ʱػ̨ҳҳĲ˵롣
  */
 static void init_runtime(void) {
-    setlocale(LC_ALL, "");
 #ifdef _WIN32
-    system("chcp 65001 > nul");
+    if (setlocale(LC_ALL, ".936") == NULL) {
+        setlocale(LC_ALL, "");
+    }
+    SetConsoleOutputCP(936);
+    SetConsoleCP(936);
+#else
+    setlocale(LC_ALL, "");
 #endif
 }
 
 /*
- * 功能：根据工资项目计算教师应发工资。
- * 参数：teacher 指向一条教师工资记录。
- * 返回：基本工资 + 岗位津贴 + 奖金 - 扣款。
+ * ܣݹĿʦӦʡ
+ * teacher ָһʦʼ¼
+ * أ + λ +  - ۿ
  */
 static double total_salary(const Teacher *teacher) {
     return teacher->baseSalary + teacher->allowance + teacher->bonus - teacher->deduction;
 }
 
 /*
- * 功能：去掉 fgets 读入字符串末尾的换行符。
- * 参数：text 为需要处理的字符串。
+ * ܣȥ fgets ַĩβĻз
+ * text ΪҪַ
  */
 static void trim_newline(char *text) {
     size_t len = strlen(text);
@@ -71,33 +78,34 @@ static void trim_newline(char *text) {
 }
 
 /*
- * 功能：判断文本是否含有 CSV 分隔符逗号。
- * 参数：text 为用户输入的文本。
- * 返回：含逗号返回 1，否则返回 0。
+ * ܣжıǷ CSV ָš
+ * text Ϊûı
+ * أŷ 1򷵻 0
  */
 static int contains_comma(const char *text) {
     return strchr(text, ',') != NULL;
 }
 
 /*
- * 功能：安全读取一段非空文本。
- * 参数：prompt 为提示语；buffer 保存输入；size 为缓冲区长度。
- * 说明：禁止输入逗号，避免破坏 CSV 文件格式。
+ * ܣȫȡһηǿı
+ * prompt Ϊʾbuffer 룻size Ϊȡ
+ * ˵ֹ붺ţƻ CSV ļʽ
  */
 static void read_text(const char *prompt, char *buffer, size_t size) {
     for (;;) {
         printf("%s", prompt);
+        fflush(stdout);
         if (fgets(buffer, (int)size, stdin) == NULL) {
             clearerr(stdin);
             continue;
         }
         trim_newline(buffer);
         if (buffer[0] == '\0') {
-            puts("输入不能为空，请重新输入。");
+            puts("벻Ϊգ롣");
             continue;
         }
         if (contains_comma(buffer)) {
-            puts("输入内容不能包含英文逗号，请重新输入。");
+            puts("ݲܰӢĶţ롣");
             continue;
         }
         return;
@@ -105,9 +113,9 @@ static void read_text(const char *prompt, char *buffer, size_t size) {
 }
 
 /*
- * 功能：读取指定范围内的整数。
- * 参数：prompt 为提示语；minValue/maxValue 为允许范围。
- * 返回：用户输入的合法整数。
+ * ܣȡָΧڵ
+ * prompt ΪʾminValue/maxValue ΪΧ
+ * أûĺϷ
  */
 static int read_int(const char *prompt, int minValue, int maxValue) {
     char buffer[MAX_TEXT];
@@ -121,14 +129,14 @@ static int read_int(const char *prompt, int minValue, int maxValue) {
         if (errno == 0 && end != buffer && *end == '\0' && value >= minValue && value <= maxValue) {
             return (int)value;
         }
-        printf("请输入 %d 到 %d 之间的整数。\n", minValue, maxValue);
+        printf(" %d  %d ֮\n", minValue, maxValue);
     }
 }
 
 /*
- * 功能：读取不小于指定最小值的浮点数。
- * 参数：prompt 为提示语；minValue 为最小允许值。
- * 返回：用户输入的合法金额。
+ * ܣȡСָСֵĸ
+ * prompt ΪʾminValue ΪСֵ
+ * أûĺϷ
  */
 static double read_double(const char *prompt, double minValue) {
     char buffer[MAX_TEXT];
@@ -142,19 +150,19 @@ static double read_double(const char *prompt, double minValue) {
         if (errno == 0 && end != buffer && *end == '\0' && value >= minValue) {
             return value;
         }
-        printf("请输入不小于 %.2f 的数字。\n", minValue);
+        printf("벻С %.2f ֡\n", minValue);
     }
 }
 
 /*
- * 功能：创建教师链表节点。
- * 参数：teacher 为待保存的教师记录。
- * 返回：新创建的 TeacherNode 指针；内存不足时直接退出程序。
+ * ܣʦڵ㡣
+ * teacher ΪĽʦ¼
+ * أ´ TeacherNode ָ룻ڴ治ʱֱ˳
  */
 static TeacherNode *create_teacher_node(Teacher teacher) {
     TeacherNode *node = (TeacherNode *)malloc(sizeof(TeacherNode));
     if (node == NULL) {
-        perror("内存分配失败");
+        perror("ڴʧ");
         exit(EXIT_FAILURE);
     }
     node->data = teacher;
@@ -163,14 +171,14 @@ static TeacherNode *create_teacher_node(Teacher teacher) {
 }
 
 /*
- * 功能：创建查询结果链表节点。
- * 参数：teacher 为符合查询条件的教师记录副本。
- * 返回：新创建的 QueryNode 指针；内存不足时直接退出程序。
+ * ܣѯڵ㡣
+ * teacher ΪϲѯĽʦ¼
+ * أ´ QueryNode ָ룻ڴ治ʱֱ˳
  */
 static QueryNode *create_query_node(Teacher teacher) {
     QueryNode *node = (QueryNode *)malloc(sizeof(QueryNode));
     if (node == NULL) {
-        perror("内存分配失败");
+        perror("ڴʧ");
         exit(EXIT_FAILURE);
     }
     node->data = teacher;
@@ -179,8 +187,8 @@ static QueryNode *create_query_node(Teacher teacher) {
 }
 
 /*
- * 功能：把教师记录追加到教师链表尾部。
- * 参数：head 为链表头指针地址；teacher 为新增记录。
+ * ܣѽʦ¼׷ӵʦβ
+ * head Ϊͷַָteacher Ϊ¼
  */
 static void append_teacher(TeacherNode **head, Teacher teacher) {
     TeacherNode *node = create_teacher_node(teacher);
@@ -197,8 +205,8 @@ static void append_teacher(TeacherNode **head, Teacher teacher) {
 }
 
 /*
- * 功能：把一条记录追加到查询结果链表尾部。
- * 参数：head 为查询结果链表头指针地址；teacher 为查询命中的记录。
+ * ܣһ¼׷ӵѯβ
+ * head Ϊѯͷַָteacher Ϊѯеļ¼
  */
 static void append_query(QueryNode **head, Teacher teacher) {
     QueryNode *node = create_query_node(teacher);
@@ -215,8 +223,8 @@ static void append_query(QueryNode **head, Teacher teacher) {
 }
 
 /*
- * 功能：释放教师主链表占用的内存。
- * 参数：head 为教师链表头指针。
+ * ܣͷŽʦռõڴ档
+ * head Ϊʦͷָ롣
  */
 static void free_teachers(TeacherNode *head) {
     while (head != NULL) {
@@ -227,8 +235,8 @@ static void free_teachers(TeacherNode *head) {
 }
 
 /*
- * 功能：释放查询结果链表占用的内存。
- * 参数：head 为查询结果链表头指针。
+ * ܣͷŲѯռõڴ档
+ * head Ϊѯͷָ롣
  */
 static void free_queries(QueryNode *head) {
     while (head != NULL) {
@@ -239,9 +247,9 @@ static void free_queries(QueryNode *head) {
 }
 
 /*
- * 功能：根据教师编号查找主链表中的记录。
- * 参数：head 为教师链表头指针；id 为教师编号。
- * 返回：找到则返回节点指针，否则返回 NULL。
+ * ܣݽʦŲеļ¼
+ * head Ϊʦͷָ룻id Ϊʦš
+ * أҵ򷵻ؽڵָ룬򷵻 NULL
  */
 static TeacherNode *find_teacher_by_id(TeacherNode *head, const char *id) {
     for (TeacherNode *current = head; current != NULL; current = current->next) {
@@ -253,18 +261,18 @@ static TeacherNode *find_teacher_by_id(TeacherNode *head, const char *id) {
 }
 
 /*
- * 功能：打印工资信息表头。
+ * ܣӡϢͷ
  */
 static void print_header(void) {
     puts("-----------------------------------------------------------------------------------------------");
     printf("%-10s %-10s %-6s %-6s %-12s %-12s %10s %10s %10s %10s %10s\n",
-           "编号", "姓名", "性别", "年龄", "部门", "职称", "基本工资", "津贴", "奖金", "扣款", "应发工资");
+           "", "", "Ա", "", "", "ְ", "", "", "", "ۿ", "Ӧ");
     puts("-----------------------------------------------------------------------------------------------");
 }
 
 /*
- * 功能：按表格格式打印一条教师工资记录。
- * 参数：teacher 为需要输出的教师记录。
+ * ܣʽӡһʦʼ¼
+ * teacher ΪҪĽʦ¼
  */
 static void print_teacher(const Teacher *teacher) {
     printf("%-10s %-10s %-6s %-6d %-12s %-12s %10.2f %10.2f %10.2f %10.2f %10.2f\n",
@@ -273,13 +281,13 @@ static void print_teacher(const Teacher *teacher) {
 }
 
 /*
- * 功能：输出查询结果链表中的所有记录。
- * 参数：head 为查询结果链表头指针。
+ * ܣѯем¼
+ * head Ϊѯͷָ롣
  */
 static void print_query_results(QueryNode *head) {
     int count = 0;
     if (head == NULL) {
-        puts("未查询到符合条件的教师工资信息。");
+        puts("δѯĽʦϢ");
         return;
     }
 
@@ -289,13 +297,13 @@ static void print_query_results(QueryNode *head) {
         count++;
     }
     puts("-----------------------------------------------------------------------------------------------");
-    printf("共查询到 %d 条记录。\n", count);
+    printf("ѯ %d ¼\n", count);
 }
 
 /*
- * 功能：创建数据目录。
- * 返回：成功或目录已存在返回 1，失败返回 0。
- * 说明：同时兼容 Windows 的 _mkdir 和 Linux/macOS 的 mkdir，便于在不同系统编译运行。
+ * ܣĿ¼
+ * أɹĿ¼Ѵڷ 1ʧܷ 0
+ * ˵ͬʱ Windows  _mkdir  Linux/macOS  mkdirڲͬϵͳС
  */
 static int ensure_data_directory(void) {
 #ifdef _WIN32
@@ -307,14 +315,14 @@ static int ensure_data_directory(void) {
         return 1;
     }
 #endif
-    perror("创建 data 目录失败");
+    perror(" data Ŀ¼ʧ");
     return 0;
 }
 
 /*
- * 功能：把教师链表中的所有记录写入文件。
- * 参数：head 为教师链表头指针。
- * 返回：保存成功返回 1，失败返回 0。
+ * ܣѽʦем¼дļ
+ * head Ϊʦͷָ롣
+ * أɹ 1ʧܷ 0
  */
 static int save_teachers(TeacherNode *head) {
     FILE *file;
@@ -325,7 +333,7 @@ static int save_teachers(TeacherNode *head) {
 
     file = fopen(DATA_FILE, "w");
     if (file == NULL) {
-        perror("保存文件失败");
+        perror("ļʧ");
         return 0;
     }
 
@@ -341,9 +349,9 @@ static int save_teachers(TeacherNode *head) {
 }
 
 /*
- * 功能：解析文件中的一行 CSV 数据。
- * 参数：line 为一行文本；teacher 用于保存解析结果。
- * 返回：解析成功返回 1，字段数量不正确返回 0。
+ * ܣļеһ CSV ݡ
+ * line Ϊһıteacher ڱ
+ * أɹ 1ֶȷ 0
  */
 static int parse_teacher_line(char *line, Teacher *teacher) {
     char *fields[10];
@@ -372,8 +380,8 @@ static int parse_teacher_line(char *line, Teacher *teacher) {
 }
 
 /*
- * 功能：程序启动时从文件加载教师工资记录。
- * 参数：head 为教师链表头指针地址。
+ * ܣʱļؽʦʼ¼
+ * head Ϊʦͷַָ
  */
 static void load_teachers(TeacherNode **head) {
     FILE *file = fopen(DATA_FILE, "r");
@@ -381,7 +389,7 @@ static void load_teachers(TeacherNode **head) {
     int loaded = 0;
 
     if (file == NULL) {
-        puts("未找到历史数据文件，将从空数据开始。");
+        puts("δҵʷļӿݿʼ");
         return;
     }
 
@@ -398,53 +406,53 @@ static void load_teachers(TeacherNode **head) {
     }
 
     fclose(file);
-    printf("已从 %s 读取 %d 条教师工资记录。\n", DATA_FILE, loaded);
+    printf("Ѵ %s ȡ %d ʦʼ¼\n", DATA_FILE, loaded);
 }
 
 /*
- * 功能：录入一名教师的基本信息和工资信息。
- * 参数：head 为教师链表头指针地址。
- * 说明：录入后立即保存到文件，满足数据持久化要求。
+ * ܣ¼һʦĻϢ͹Ϣ
+ * head Ϊʦͷַָ
+ * ˵¼浽ļݳ־ûҪ
  */
 static void add_teacher(TeacherNode **head) {
     Teacher teacher;
 
-    puts("\n【录入教师工资信息】");
+    puts("\n¼ʦϢ");
     for (;;) {
-        read_text("教师编号：", teacher.id, sizeof(teacher.id));
+        read_text("ʦţ", teacher.id, sizeof(teacher.id));
         if (find_teacher_by_id(*head, teacher.id) == NULL) {
             break;
         }
-        puts("该教师编号已存在，请重新输入。");
+        puts("ýʦѴڣ롣");
     }
 
-    read_text("姓名：", teacher.name, sizeof(teacher.name));
-    read_text("性别：", teacher.gender, sizeof(teacher.gender));
-    teacher.age = read_int("年龄：", 18, 100);
-    read_text("所在部门：", teacher.department, sizeof(teacher.department));
-    read_text("职称：", teacher.title, sizeof(teacher.title));
-    teacher.baseSalary = read_double("基本工资：", 0.0);
-    teacher.allowance = read_double("岗位津贴：", 0.0);
-    teacher.bonus = read_double("奖金：", 0.0);
-    teacher.deduction = read_double("扣款：", 0.0);
+    read_text("", teacher.name, sizeof(teacher.name));
+    read_text("Ա", teacher.gender, sizeof(teacher.gender));
+    teacher.age = read_int("䣺", 18, 100);
+    read_text("ڲţ", teacher.department, sizeof(teacher.department));
+    read_text("ְƣ", teacher.title, sizeof(teacher.title));
+    teacher.baseSalary = read_double("ʣ", 0.0);
+    teacher.allowance = read_double("λ", 0.0);
+    teacher.bonus = read_double("", 0.0);
+    teacher.deduction = read_double("ۿ", 0.0);
 
     append_teacher(head, teacher);
     if (save_teachers(*head)) {
-        puts("录入成功，数据已保存到文件。");
+        puts("¼ɹѱ浽ļ");
     }
 }
 
 /*
- * 功能：按教师编号查询工资信息。
- * 参数：head 为教师链表头指针。
- * 说明：查询结果先保存到 QueryNode 链表，再统一输出。
+ * ܣʦŲѯϢ
+ * head Ϊʦͷָ롣
+ * ˵ѯȱ浽 QueryNode ͳһ
  */
 static void query_by_id(TeacherNode *head) {
     char id[MAX_TEXT];
     QueryNode *results = NULL;
 
-    puts("\n【按教师编号查询】");
-    read_text("请输入教师编号：", id, sizeof(id));
+    puts("\nʦŲѯ");
+    read_text("ʦţ", id, sizeof(id));
     for (TeacherNode *current = head; current != NULL; current = current->next) {
         if (strcmp(current->data.id, id) == 0) {
             append_query(&results, current->data);
@@ -456,16 +464,16 @@ static void query_by_id(TeacherNode *head) {
 }
 
 /*
- * 功能：按所在部门查询工资信息。
- * 参数：head 为教师链表头指针。
- * 说明：同一部门可能有多名教师，结果使用查询链表保存并输出。
+ * ܣڲŲѯϢ
+ * head Ϊʦͷָ롣
+ * ˵ͬһſжʦʹòѯ沢
  */
 static void query_by_department(TeacherNode *head) {
     char department[MAX_TEXT];
     QueryNode *results = NULL;
 
-    puts("\n【按所在部门查询】");
-    read_text("请输入部门名称：", department, sizeof(department));
+    puts("\nڲŲѯ");
+    read_text("벿ƣ", department, sizeof(department));
     for (TeacherNode *current = head; current != NULL; current = current->next) {
         if (strcmp(current->data.department, department) == 0) {
             append_query(&results, current->data);
@@ -477,16 +485,16 @@ static void query_by_department(TeacherNode *head) {
 }
 
 /*
- * 功能：按教师姓名查询工资信息。
- * 参数：head 为教师链表头指针。
- * 说明：这是扩展查询方式，支持同名教师，结果同样通过链表输出。
+ * ܣʦѯϢ
+ * head Ϊʦͷָ롣
+ * ˵չѯʽ֧ͬʦͬͨ
  */
 static void query_by_name(TeacherNode *head) {
     char name[MAX_TEXT];
     QueryNode *results = NULL;
 
-    puts("\n【按教师姓名查询】");
-    read_text("请输入教师姓名：", name, sizeof(name));
+    puts("\nʦѯ");
+    read_text("ʦ", name, sizeof(name));
     for (TeacherNode *current = head; current != NULL; current = current->next) {
         if (strcmp(current->data.name, name) == 0) {
             append_query(&results, current->data);
@@ -498,18 +506,18 @@ static void query_by_name(TeacherNode *head) {
 }
 
 /*
- * 功能：显示查询子菜单并调用具体查询函数。
- * 参数：head 为教师链表头指针。
+ * ܣʾѯӲ˵þѯ
+ * head Ϊʦͷָ롣
  */
 static void query_menu(TeacherNode *head) {
     int choice;
     do {
-        puts("\n【教师工资查询】");
-        puts("1. 按教师编号查询");
-        puts("2. 按所在部门查询");
-        puts("3. 按教师姓名查询");
-        puts("0. 返回主菜单");
-        choice = read_int("请选择：", 0, 3);
+        puts("\nʦʲѯ");
+        puts("1. ʦŲѯ");
+        puts("2. ڲŲѯ");
+        puts("3. ʦѯ");
+        puts("0. ˵");
+        choice = read_int("ѡ", 0, 3);
         switch (choice) {
             case 1:
                 query_by_id(head);
@@ -523,15 +531,15 @@ static void query_menu(TeacherNode *head) {
             case 0:
                 break;
             default:
-                puts("无效选择。");
+                puts("Чѡ");
         }
     } while (choice != 0);
 }
 
 /*
- * 功能：统计全校和各部门工资情况。
- * 参数：head 为教师链表头指针。
- * 输出：人数、工资总额、平均工资、最高工资、最低工资和部门汇总。
+ * ܣͳȫУ͸Ź
+ * head Ϊʦͷָ롣
+ * ܶƽʡ߹ʡ͹ʺͲŻܡ
  */
 static void statistics(TeacherNode *head) {
     int count = 0;
@@ -541,9 +549,9 @@ static void statistics(TeacherNode *head) {
     const Teacher *maxTeacher = NULL;
     const Teacher *minTeacher = NULL;
 
-    puts("\n【教师工资统计】");
+    puts("\nʦͳơ");
     if (head == NULL) {
-        puts("当前没有教师工资数据。\n");
+        puts("ǰûнʦݡ\n");
         return;
     }
 
@@ -561,13 +569,13 @@ static void statistics(TeacherNode *head) {
         count++;
     }
 
-    printf("教师总人数：%d\n", count);
-    printf("工资总额：%.2f\n", sum);
-    printf("平均工资：%.2f\n", sum / count);
-    printf("最高工资：%.2f（%s %s）\n", maxSalary, maxTeacher->id, maxTeacher->name);
-    printf("最低工资：%.2f（%s %s）\n", minSalary, minTeacher->id, minTeacher->name);
+    printf("ʦ%d\n", count);
+    printf("ܶ%.2f\n", sum);
+    printf("ƽʣ%.2f\n", sum / count);
+    printf("߹ʣ%.2f%s %s\n", maxSalary, maxTeacher->id, maxTeacher->name);
+    printf("͹ʣ%.2f%s %s\n", minSalary, minTeacher->id, minTeacher->name);
 
-    puts("\n按部门统计：");
+    puts("\nͳƣ");
     for (TeacherNode *outer = head; outer != NULL; outer = outer->next) {
         int seen = 0;
         int deptCount = 0;
@@ -589,56 +597,56 @@ static void statistics(TeacherNode *head) {
                 deptSum += total_salary(&inner->data);
             }
         }
-        printf("%-12s 人数：%d  工资总额：%.2f  平均工资：%.2f\n",
+        printf("%-12s %d  ܶ%.2f  ƽʣ%.2f\n",
                outer->data.department, deptCount, deptSum, deptSum / deptCount);
     }
 }
 
 /*
- * 功能：按教师编号修改教师职称和工资项目。
- * 参数：head 为教师链表头指针。
- * 说明：适用于晋升职称、调整岗位津贴或奖金扣款等场景。
+ * ܣʦ޸Ľʦְƺ͹Ŀ
+ * head Ϊʦͷָ롣
+ * ˵ڽְơλ򽱽ۿȳ
  */
 static void modify_teacher(TeacherNode *head) {
     char id[MAX_TEXT];
     TeacherNode *node;
 
-    puts("\n【教师工资修改】");
-    read_text("请输入需要修改的教师编号：", id, sizeof(id));
+    puts("\nʦ޸ġ");
+    read_text("Ҫ޸ĵĽʦţ", id, sizeof(id));
     node = find_teacher_by_id(head, id);
     if (node == NULL) {
-        puts("未找到该教师编号。");
+        puts("δҵýʦš");
         return;
     }
 
-    puts("当前信息：");
+    puts("ǰϢ");
     print_header();
     print_teacher(&node->data);
     puts("-----------------------------------------------------------------------------------------------");
 
-    read_text("新职称：", node->data.title, sizeof(node->data.title));
-    node->data.baseSalary = read_double("新基本工资：", 0.0);
-    node->data.allowance = read_double("新岗位津贴：", 0.0);
-    node->data.bonus = read_double("新奖金：", 0.0);
-    node->data.deduction = read_double("新扣款：", 0.0);
+    read_text("ְƣ", node->data.title, sizeof(node->data.title));
+    node->data.baseSalary = read_double("»ʣ", 0.0);
+    node->data.allowance = read_double("¸λ", 0.0);
+    node->data.bonus = read_double("½", 0.0);
+    node->data.deduction = read_double("¿ۿ", 0.0);
 
     if (save_teachers(head)) {
-        puts("修改成功，数据已保存到文件。");
+        puts("޸ĳɹѱ浽ļ");
     }
 }
 
 /*
- * 功能：按教师编号删除一条记录。
- * 参数：head 为教师链表头指针地址。
- * 说明：这是扩展维护功能，删除后立即写回文件。
+ * ܣʦɾһ¼
+ * head Ϊʦͷַָ
+ * ˵չάܣɾдļ
  */
 static void delete_teacher(TeacherNode **head) {
     char id[MAX_TEXT];
     TeacherNode *current = *head;
     TeacherNode *previous = NULL;
 
-    puts("\n【删除教师工资信息】");
-    read_text("请输入需要删除的教师编号：", id, sizeof(id));
+    puts("\nɾʦϢ");
+    read_text("ҪɾĽʦţ", id, sizeof(id));
 
     while (current != NULL && strcmp(current->data.id, id) != 0) {
         previous = current;
@@ -646,7 +654,7 @@ static void delete_teacher(TeacherNode **head) {
     }
 
     if (current == NULL) {
-        puts("未找到该教师编号。");
+        puts("δҵýʦš");
         return;
     }
 
@@ -658,14 +666,14 @@ static void delete_teacher(TeacherNode **head) {
     free(current);
 
     if (save_teachers(*head)) {
-        puts("删除成功，数据已保存到文件。");
+        puts("ɾɹѱ浽ļ");
     }
 }
 
 /*
- * 功能：显示所有教师工资信息。
- * 参数：head 为教师链表头指针。
- * 说明：复用查询结果链表输出，保持与查询功能一致的输出形式。
+ * ܣʾнʦϢ
+ * head Ϊʦͷָ롣
+ * ˵òѯѯһµʽ
  */
 static void list_all(TeacherNode *head) {
     QueryNode *results = NULL;
@@ -677,22 +685,22 @@ static void list_all(TeacherNode *head) {
 }
 
 /*
- * 功能：打印主菜单。
+ * ܣӡ˵
  */
 static void print_menu(void) {
-    puts("\n========== 教师工资管理系统 ==========");
-    puts("1. 录入教师工资信息");
-    puts("2. 查询教师工资信息");
-    puts("3. 统计教师工资信息");
-    puts("4. 修改教师工资信息");
-    puts("5. 显示全部教师工资信息");
-    puts("6. 删除教师工资信息");
-    puts("0. 退出系统");
+    puts("\n========== ʦʹϵͳ ==========");
+    puts("1. ¼ʦϢ");
+    puts("2. ѯʦϢ");
+    puts("3. ͳƽʦϢ");
+    puts("4. ޸ĽʦϢ");
+    puts("5. ʾȫʦϢ");
+    puts("6. ɾʦϢ");
+    puts("0. ˳ϵͳ");
 }
 
 /*
- * 功能：程序入口函数。
- * 流程：初始化运行环境、加载文件数据、循环显示菜单、按用户选择调用功能、退出前释放链表内存。
+ * ܣں
+ * ̣ʼлļݡѭʾ˵ûѡùܡ˳ǰͷڴ档
  */
 int main(void) {
     TeacherNode *teachers = NULL;
@@ -702,7 +710,7 @@ int main(void) {
     load_teachers(&teachers);
     do {
         print_menu();
-        choice = read_int("请选择功能：", 0, 6);
+        choice = read_int("ѡܣ", 0, 6);
         switch (choice) {
             case 1:
                 add_teacher(&teachers);
@@ -723,10 +731,10 @@ int main(void) {
                 delete_teacher(&teachers);
                 break;
             case 0:
-                puts("感谢使用，再见！");
+                puts("лʹãټ");
                 break;
             default:
-                puts("无效选择，请重新输入。");
+                puts("Чѡ롣");
         }
     } while (choice != 0);
 

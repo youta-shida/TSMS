@@ -1,5 +1,5 @@
 CC ?= gcc
-CFLAGS ?= -std=c11 -Wall -Wextra -pedantic -O2
+CFLAGS ?= -std=c11 -Wall -Wextra -pedantic -O2 -finput-charset=GBK -fexec-charset=UTF-8
 TARGET := tsms
 SRC := src/main.c
 
